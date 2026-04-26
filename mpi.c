@@ -9,13 +9,13 @@
 int  ARRAY_SIZE;
 int  NUM_RANKS;
 
-char **char_array = NULL;
-int  *results;
+char** char_array = NULL;
+int* results;
 int   num_lines_total;
 
 FILE* open_file()
 {
-    FILE *fp = NULL;
+    FILE* fp = NULL;
     fp = fopen("/homes/eyv/cis520/wiki_dump.txt", "r");
 
     if (fp == NULL)
@@ -29,10 +29,10 @@ FILE* open_file()
 
 void allocate_memory()
 {
-    int max_lines_possible = ARRAY_SIZE / STRING_SIZE;
+    int max_lines = (ARRAY_SIZE / NUM_RANKS) / STRING_SIZE;
 
-    char_array = malloc(max_lines_possible * sizeof(char*));
-    results    = malloc(max_lines_possible * sizeof(int));
+    char_array = malloc(max_lines * sizeof(char*));
+    results = malloc(max_lines * sizeof(int));
 
     if (char_array == NULL || results == NULL)
     {
@@ -40,7 +40,7 @@ void allocate_memory()
         return;
     }
 
-    for (int i = 0; i < max_lines_possible; i++)
+    for (int i = 0; i < max_lines; i++)
     {
         char_array[i] = NULL;
         char_array[i] = malloc(STRING_SIZE);
@@ -50,15 +50,15 @@ void allocate_memory()
 }
 
 //load the data
-int init_arrays(FILE *fp)
+int init_arrays(FILE* fp)
 {
-    int    i   = 0;
-    char  *line = NULL;
-    size_t len  = 0;
+    int    i = 0;
+    char* line = NULL;
+    size_t len = 0;
 
-    int max_lines_possible = ARRAY_SIZE / STRING_SIZE;
+    int max_lines = (ARRAY_SIZE / NUM_RANKS) / STRING_SIZE;
 
-    while (i < max_lines_possible && getline(&line, &len, fp) != -1)
+    while (i < max_lines && getline(&line, &len, fp) != -1)
     {
         int j = 0;
         while (line[j] != '\0' && j < STRING_SIZE - 1)
@@ -93,8 +93,8 @@ void compute_max(int rank)
 
 void free_memory()
 {
-    int max_lines_possible = ARRAY_SIZE / STRING_SIZE;
-    for (int i = 0; i < max_lines_possible; i++)
+    int max_lines = (ARRAY_SIZE / NUM_RANKS) / STRING_SIZE;
+    for (int i = 0; i < max_lines; i++)
         free(char_array[i]);
     free(char_array);
     free(results);
@@ -108,8 +108,8 @@ void process_file_batches(int rank)
     char filename[100];
     sprintf(filename, "output_mpi%d-%d.txt", NUM_RANKS, ARRAY_SIZE);
 
-    FILE *out = NULL;
-    FILE *fp  = NULL;
+    FILE* out = NULL;
+    FILE* fp = NULL;
 
     if (rank == 0)
     {
@@ -119,8 +119,8 @@ void process_file_batches(int rank)
     }
 
     //buffer max_lines * STRING_SIZE chars
-    int max_lines = ARRAY_SIZE / STRING_SIZE;
-    char *flat_buf = malloc((size_t)max_lines * STRING_SIZE);
+    int max_lines = (ARRAY_SIZE / NUM_RANKS) / STRING_SIZE;
+    char* flat_buf = malloc((size_t)max_lines * STRING_SIZE);
     if (!flat_buf) { perror("malloc flat_buf"); exit(-1); }
 
     int global_index = 0;
@@ -142,10 +142,10 @@ void process_file_batches(int rank)
         {
             for (int i = 0; i < lines_loaded; i++)
                 memcpy(flat_buf + (size_t)i * STRING_SIZE,
-                       char_array[i], STRING_SIZE);
+                    char_array[i], STRING_SIZE);
         }
         MPI_Bcast(flat_buf, max_lines * STRING_SIZE, MPI_CHAR,
-                  0, MPI_COMM_WORLD);
+            0, MPI_COMM_WORLD);
 
         // unpack into char_array on the non zero ranks
         if (rank != 0)
@@ -153,7 +153,7 @@ void process_file_batches(int rank)
             num_lines_total = lines_loaded;
             for (int i = 0; i < lines_loaded; i++)
                 memcpy(char_array[i],
-                       flat_buf + (size_t)i * STRING_SIZE, STRING_SIZE);
+                    flat_buf + (size_t)i * STRING_SIZE, STRING_SIZE);
         }
 
         // zero out results then each rank fills its slice
@@ -161,12 +161,12 @@ void process_file_batches(int rank)
         compute_max(rank);
 
         // reduce collapses all slices
-        int *gathered = NULL;
+        int* gathered = NULL;
         if (rank == 0)
             gathered = malloc((size_t)lines_loaded * sizeof(int));
 
         MPI_Reduce(results, gathered, lines_loaded, MPI_INT, MPI_MAX,
-                   0, MPI_COMM_WORLD);
+            0, MPI_COMM_WORLD);
 
         // rank 0 writes this batch
         if (rank == 0)
@@ -180,15 +180,15 @@ void process_file_batches(int rank)
     }
 
     gettimeofday(&end, NULL);
-    double elapsed_time = (end.tv_sec  - start.tv_sec) +
-                          (end.tv_usec - start.tv_usec) / 1e6;
+    double elapsed_time = (end.tv_sec - start.tv_sec) +
+        (end.tv_usec - start.tv_usec) / 1e6;
 
     if (rank == 0)
     {
         fprintf(out, "\n===== PERFORMANCE DATA =====\n");
-        fprintf(out, "MPI Ranks: %d\n",               NUM_RANKS);
-        fprintf(out, "Array Size (Memory): %d\n",      ARRAY_SIZE);
-        fprintf(out, "Total Lines Processed: %d\n",    global_index);
+        fprintf(out, "MPI Ranks: %d\n", NUM_RANKS);
+        fprintf(out, "Array Size (Memory): %d\n", ARRAY_SIZE);
+        fprintf(out, "Total Lines Processed: %d\n", global_index);
         fprintf(out, "Execution Time: %.6f seconds\n", elapsed_time);
 
         fclose(out);
@@ -198,7 +198,7 @@ void process_file_batches(int rank)
     free(flat_buf);
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     int rc = MPI_Init(&argc, &argv);
     if (rc != MPI_SUCCESS)
@@ -234,7 +234,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    NUM_RANKS = nprocs;   // always trust MPI over argv[1]
+    NUM_RANKS = nprocs;
 
     allocate_memory();
 
