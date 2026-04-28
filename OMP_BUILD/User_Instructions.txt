@@ -1,0 +1,11 @@
+To run fun_omp.sh and getResults.sh enter the following:
+
+NODES=(Number of nodes you want to use)
+CPUS=(Number of cpus you want to use)
+MEM=(Amount of memory you want to use)
+JOBID=$(sbatch --nodes=$NODES --cpus-per-taks=$CPUS --mem-per-cpu=$MEM fun_omp.sh | awk '{print $4}')
+sbatch --dependency=afterany:$JOBID getResults.sh $JOBID $CPUS $MEM $NODES
+
+After the job is finished there will be a text file with the name 
+"output_(Nodes)_(CPUS)_(MEM)_(JOBID).txt" that holds the runtime and cpu
+and memory usage.
